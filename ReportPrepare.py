@@ -159,9 +159,6 @@ def report_message_prepare():
     plot_sentiment_pie_chart(sentiment_counts)
 
     # Удаляем прошедший контекст рандомным вопросом
-    get_answer("Какую еду любят в японии?")
-
-    # Получаем
     gpt_summary = get_answer(message_summary)
 
     return (total_messages, top_users_string, top_words_string, top_words, gpt_summary, sticker_attachment,

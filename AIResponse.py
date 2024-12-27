@@ -1,10 +1,10 @@
-import requests
-import time
-import openai
-
-# https://app.hyperbolic.xyz/
-# Можем юзать мой гпт ключ, там на сто лет хватит
-
+# import requests
+# import time
+# import openai
+#
+# # https://app.hyperbolic.xyz/
+# # Можем юзать мой гпт ключ, там на сто лет хватит
+#
 SYSTEM_CONTENT = """Только что тебе пришли сообщения из беседы в мессендежере за день. 
 Забудь старый контекст. Начни заново. Напиши пересказ того, о чем общались в беседе за день. 
  Твой пересказ должен вызывать смех у людей. Твой пересказ должен быть смешным.
@@ -17,43 +17,87 @@ SYSTEM_CONTENT = """Только что тебе пришли сообщения
  Не пиши 'что вызвало смех и удивление у других участников' и подобные фразы.
   Последний абзац - подведение итогов всего, что ты написал выше.
   Используй ясный и краткий язык."""
+#
+# API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ6aGFzaDIzMDhAbWFpbC5ydSIsImlhdCI6MTczMzkzNzM1NX0.bL4Fp-C-k3gObuKpNFH4oz68vo4IFdND0RpCHPbMYRs"
+# BASE_URL = "https://api.hyperbolic.xyz/v1"
+# MODEL_NAME = "meta-llama/Meta-Llama-3.1-405B-Instruct"
+# count_bad = 0
+#
+# # Функция для создания запроса
+# def create_chat_completion(user_content, system_content=SYSTEM_CONTENT, temperature=0.4, max_tokens=6000):
+#     client = openai.OpenAI(
+#         api_key=API_KEY,
+#         base_url=BASE_URL,
+#     )
+#
+#     chat_completion = client.chat.completions.create(
+#         model=MODEL_NAME,
+#         messages=[
+#             {"role": "system", "content": system_content},
+#             {"role": "user", "content": user_content},
+#         ],
+#         temperature=temperature,
+#         max_tokens=max_tokens
+#     )
+#
+#     return chat_completion.choices[0].message.content
+#
+#
+# # Основная функция
+# def get_answer(message):
+#     global count_bad
+#     while True:
+#         try:
+#             response = create_chat_completion(user_content=message)
+#             return response
+#         except Exception as e:
+#             print(f"Ошибка: {e}")
+#             count_bad += 1
+#             if count_bad == 5:
+#                 exit()
+#             time.sleep(5)
 
-API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ6aGFzaDIzMDhAbWFpbC5ydSIsImlhdCI6MTczMzkzNzM1NX0.bL4Fp-C-k3gObuKpNFH4oz68vo4IFdND0RpCHPbMYRs"
-BASE_URL = "https://api.hyperbolic.xyz/v1"
-MODEL_NAME = "meta-llama/Meta-Llama-3.1-405B-Instruct"
-count_bad = 0
 
-# Функция для создания запроса
-def create_chat_completion(user_content, system_content=SYSTEM_CONTENT, temperature=0.4, max_tokens=6000):
-    client = openai.OpenAI(
-        api_key=API_KEY,
-        base_url=BASE_URL,
-    )
+import torch
+from huggingface_hub import login
+from transformers import pipeline
 
-    chat_completion = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_content},
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens
-    )
+# Авторизация в Hugging Face
+login(token="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")
 
-    return chat_completion.choices[0].message.content
+# Проверка доступности GPU
+if torch.cuda.is_available():
+    device = "cuda"
+    torch_dtype = torch.bfloat16  # Используйте bfloat16, если поддерживается
+else:
+    device = "cpu"
+    torch_dtype = torch.float32  # Используйте float32 на CPU
+
+model_id = "meta-llama/Llama-3.2-3B-Instruct"
+
+# Создание пайплайна с указанием устройства и типа данных
+pipe = pipeline(
+    "text-generation",
+    model=model_id,
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+)
+
+messages = [
+    {"role": "system", "content": SYSTEM_CONTENT},
+    {"role": "user", "content": "some dialog"},
+]
+
+# Генерация текста
 
 
 # Основная функция
 def get_answer(message):
-    global count_bad
-    while True:
-        try:
-            response = create_chat_completion(user_content=message)
-            return response
-        except Exception as e:
-            print(f"Ошибка: {e}")
-            count_bad += 1
-            if count_bad == 5:
-                exit()
-            time.sleep(5)
-
+    torch.cuda.empty_cache()
+    messages[1]["content"] = message
+    outputs = pipe(
+        messages,
+        max_new_tokens=1024,
+    )
+    # Вывод сгенерированного текста
+    return outputs[0]["generated_text"][2]['content']
